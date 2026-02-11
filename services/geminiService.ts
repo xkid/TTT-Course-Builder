@@ -40,7 +40,12 @@ async function safeGenerate(model: string, prompt: string, schema: Schema, retri
 export const generateCourseStructure = async (topic: string): Promise<Partial<CourseData>> => {
   const prompt = `Create a structured HRDF training course outline for the topic: "${topic}". 
   I need the course title, a suggested duration, learning outcomes (3-5), a brief ice breaker idea, 
-  and 3-4 distinct modules with sub-topics.
+  and 3-4 distinct modules.
+  
+  For each module:
+  - Provide a concise 'title' (e.g. "Module 1: Introduction").
+  - Provide 'subTopics' as a list of specific learning points.
+  
   Return JSON only.`;
 
   const schema: Schema = {
@@ -57,10 +62,12 @@ export const generateCourseStructure = async (topic: string): Promise<Partial<Co
           properties: {
             title: { type: Type.STRING },
             subTopics: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
+          },
+          required: ["title", "subTopics"]
         }
       }
-    }
+    },
+    required: ["courseTitle", "learningOutcomes", "modules"]
   };
 
   try {
@@ -75,7 +82,8 @@ export const generateCourseStructure = async (topic: string): Promise<Partial<Co
     const modules = (data.modules || []).map((m: any, idx: number) => ({
       id: `mod-${Date.now()}-${idx}`,
       title: m.title,
-      subTopics: (m.subTopics || []).map((text: string, sIdx: number) => ({
+      // Handle potential casing issues or missing arrays
+      subTopics: (m.subTopics || m.subtopics || []).map((text: string, sIdx: number) => ({
         id: `sub-${Date.now()}-${idx}-${sIdx}`,
         text
       }))
@@ -98,7 +106,11 @@ export const generateModulesFromOutcomes = async (outcomes: LearningOutcomeItem[
 - ${outcomesList}
 
 Generate a comprehensive list of training modules (Content Mapping) that covers these outcomes.
-Return a JSON array of objects with 'title' (string) and 'subTopics' (array of strings).`;
+For each module:
+1. 'title': A short, descriptive name (e.g., "Module 1: Fundamentals").
+2. 'subTopics': An array of strings detailing the specific content points.
+Ensure the content is well-structured and NOT merged into the title.
+Return a JSON array of module objects.`;
 
   const schema: Schema = {
     type: Type.ARRAY,
@@ -107,7 +119,8 @@ Return a JSON array of objects with 'title' (string) and 'subTopics' (array of s
       properties: {
         title: { type: Type.STRING },
         subTopics: { type: Type.ARRAY, items: { type: Type.STRING } }
-      }
+      },
+      required: ["title", "subTopics"]
     }
   };
 
@@ -116,7 +129,8 @@ Return a JSON array of objects with 'title' (string) and 'subTopics' (array of s
     return data.map((m: any, idx: number) => ({
       id: `mod-${Date.now()}-${idx}`,
       title: m.title,
-      subTopics: (m.subTopics || []).map((text: string, sIdx: number) => ({
+      // Handle potential casing issues from AI (subTopics vs subtopics)
+      subTopics: (m.subTopics || m.subtopics || []).map((text: string, sIdx: number) => ({
         id: `sub-${Date.now()}-${idx}-${sIdx}`,
         text
       }))
@@ -151,7 +165,8 @@ export const generateSessionPlan = async (modules: ModuleItem[]): Promise<Sessio
         method: { type: Type.STRING },
         duration: { type: Type.STRING },
         slideNo: { type: Type.STRING }
-      }
+      },
+      required: ["module", "learningPoints", "resources", "method", "duration", "slideNo"]
     }
   };
 

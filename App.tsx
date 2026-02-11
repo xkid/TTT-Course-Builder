@@ -880,7 +880,7 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEndModulesStep}>
                   <SortableContext items={data.modules} strategy={verticalListSortingStrategy}>
                    {data.modules.map((mod, modIdx) => (
-                     <SortableItem key={mod.id} id={mod.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 relative group block">
+                     <SortableItem key={mod.id} id={mod.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 relative group w-full">
                         <button onClick={() => removeModule(modIdx)} className="absolute top-4 right-4 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">
                           <Trash2 className="w-5 h-5" />
                         </button>
