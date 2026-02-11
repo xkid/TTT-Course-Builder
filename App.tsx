@@ -4,7 +4,7 @@ import { generateCourseStructure, generateSessionPlan, generateReviewQuestions, 
 import { saveCourseToDB, getAllCourses, deleteCourseFromDB } from './services/db';
 import { CoursePreview } from './components/CoursePreview';
 import { SortableItem } from './components/SortableItem';
-import { Sparkles, ChevronRight, ChevronLeft, Save, Printer, Edit3, Plus, Trash2, Wand2, FolderOpen, X, Loader2, FileJson, FileText, Upload, GripVertical } from 'lucide-react';
+import { Sparkles, ChevronRight, ChevronLeft, Save, Printer, Edit3, Plus, Trash2, Wand2, FolderOpen, X, Loader2, FileJson, FileText, Upload, GripVertical, Settings, Key } from 'lucide-react';
 
 // DnD Kit Imports
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -20,7 +20,22 @@ const steps = [
 
 function App() {
   const [currentStep, setCurrentStep] = useState(0);
-  const [data, setData] = useState<CourseData>(INITIAL_COURSE_DATA);
+  
+  // Helper to get initial data mixed with saved defaults
+  const getInitialData = () => {
+    const savedDefaults = localStorage.getItem('hrdf_user_defaults');
+    const defaults = savedDefaults ? JSON.parse(savedDefaults) : {};
+    return {
+      ...INITIAL_COURSE_DATA,
+      ...defaults,
+      // Ensure fresh IDs for list items to prevent DnD conflicts on new drafts
+      learningOutcomes: [{ id: `lo-${Date.now()}`, text: '' }],
+      modules: [{ id: `mod-${Date.now()}`, title: 'Module 1', subTopics: [{ id: `sub-${Date.now()}`, text: '' }] }],
+      reviewQuestions: [{ id: `rv-${Date.now()}`, question: '' }]
+    };
+  };
+
+  const [data, setData] = useState<CourseData>(getInitialData);
   const [isGenerating, setIsGenerating] = useState(false);
   const [topicPrompt, setTopicPrompt] = useState("");
   
@@ -29,8 +44,27 @@ function App() {
   const [savedCourses, setSavedCourses] = useState<CourseData[]>([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  // Settings State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [userDefaults, setUserDefaults] = useState({
+    trainerName: "",
+    trainerTitle: "",
+    trainerBio: "",
+    location: ""
+  });
+  const [customApiKey, setCustomApiKey] = useState("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load defaults into local state when settings modal opens (or on mount)
+  useEffect(() => {
+    const saved = localStorage.getItem('hrdf_user_defaults');
+    if (saved) setUserDefaults(JSON.parse(saved));
+    
+    const storedApiKey = localStorage.getItem('gemini_api_key');
+    if (storedApiKey) setCustomApiKey(storedApiKey);
+  }, []);
 
   // Sensors for DnD - Added activation constraint to allow input focus
   const sensors = useSensors(
@@ -97,6 +131,20 @@ function App() {
         console.error("Failed to delete", error);
       }
     }
+  };
+
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    localStorage.setItem('hrdf_user_defaults', JSON.stringify(userDefaults));
+    
+    if (customApiKey.trim()) {
+      localStorage.setItem('gemini_api_key', customApiKey.trim());
+    } else {
+      localStorage.removeItem('gemini_api_key');
+    }
+    
+    setShowSettingsModal(false);
+    alert("Settings saved!");
   };
   
   // --- Export / Import Handlers ---
@@ -361,7 +409,7 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
       setCurrentStep(1); 
     } catch (e) {
       console.error(e);
-      alert("Failed to generate course structure. The service might be temporarily unavailable.");
+      alert("Failed to generate course structure. Check your API Key or try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -378,7 +426,7 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
       setData(prev => ({ ...prev, modules: newModules }));
     } catch (e) {
       console.error(e);
-      alert("Failed to generate modules. The service might be temporarily unavailable.");
+      alert("Failed to generate modules. Check your API Key or try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -395,7 +443,7 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
       setData(prev => ({ ...prev, sessionPlan: plan }));
     } catch (e) {
       console.error(e);
-      alert("Failed to generate session plan. The service might be temporarily unavailable.");
+      alert("Failed to generate session plan. Check your API Key or try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -411,7 +459,7 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
        }));
     } catch(e) {
       console.error(e);
-      alert("Failed to generate questions. The service might be temporarily unavailable.");
+      alert("Failed to generate questions. Check your API Key or try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -432,22 +480,38 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
              </div>
              
              {/* Mobile Saved Button */}
-             <button 
-                onClick={() => setShowSavedModal(true)}
-                className="md:hidden p-2 text-slate-300 hover:text-white"
-             >
-               <FolderOpen className="w-6 h-6" />
-             </button>
+             <div className="flex md:hidden space-x-2">
+               <button 
+                  onClick={() => setShowSettingsModal(true)}
+                  className="p-2 text-slate-300 hover:text-white"
+               >
+                 <Settings className="w-6 h-6" />
+               </button>
+               <button 
+                  onClick={() => setShowSavedModal(true)}
+                  className="p-2 text-slate-300 hover:text-white"
+               >
+                 <FolderOpen className="w-6 h-6" />
+               </button>
+             </div>
           </div>
 
           <div className="flex items-center space-x-4">
-             {/* Desktop Saved Button */}
-             <button 
-                onClick={() => setShowSavedModal(true)}
-                className="hidden md:flex items-center text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 px-3 py-2 rounded-lg transition"
-             >
-               <FolderOpen className="w-4 h-4 mr-2" /> My Courses
-             </button>
+             {/* Desktop Buttons */}
+             <div className="hidden md:flex items-center space-x-2">
+               <button 
+                  onClick={() => setShowSettingsModal(true)}
+                  className="flex items-center text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 px-3 py-2 rounded-lg transition"
+               >
+                 <Settings className="w-4 h-4 mr-2" /> Settings
+               </button>
+               <button 
+                  onClick={() => setShowSavedModal(true)}
+                  className="flex items-center text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 px-3 py-2 rounded-lg transition"
+               >
+                 <FolderOpen className="w-4 h-4 mr-2" /> My Courses
+               </button>
+             </div>
 
              <div className="flex space-x-1 bg-slate-800 p-1 rounded-full overflow-x-auto max-w-[90vw] md:max-w-none">
                 {steps.map((label, idx) => (
@@ -465,6 +529,93 @@ ${course.reviewQuestions.map((q, i) => `${i+1}. ${q.question}`).join('\n')}
           </div>
         </div>
       </nav>
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm no-print">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+             <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                  <Settings className="w-5 h-5 mr-2 text-orange-500" /> Global Settings
+                </h2>
+                <button onClick={() => setShowSettingsModal(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-6 h-6" />
+                </button>
+             </div>
+             
+             <div className="overflow-y-auto p-6 space-y-6">
+                
+                {/* API Key Section */}
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-100">
+                   <h3 className="text-sm font-bold text-orange-800 mb-2 flex items-center">
+                      <Key className="w-4 h-4 mr-2" /> API Configuration
+                   </h3>
+                   <p className="text-xs text-orange-700 mb-3">
+                     Enter your Gemini API key to enable AI features. The key is stored locally in your browser.
+                   </p>
+                   <div>
+                     <label className="block text-xs font-semibold text-gray-600 mb-1">Gemini API Key</label>
+                     <input 
+                       type="password"
+                       className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-orange-200 outline-none"
+                       value={customApiKey}
+                       onChange={e => setCustomApiKey(e.target.value)}
+                       placeholder="AIzaSy..."
+                     />
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-gray-800 border-b pb-1">Default Profile Values</h3>
+                  <p className="text-xs text-gray-500">
+                    These values will be auto-filled when you start a new draft.
+                  </p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Trainer Name</label>
+                    <input 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-orange-200 outline-none"
+                      value={userDefaults.trainerName}
+                      onChange={e => setUserDefaults({...userDefaults, trainerName: e.target.value})}
+                      placeholder="e.g. John Doe"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Professional Title</label>
+                    <input 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-orange-200 outline-none"
+                      value={userDefaults.trainerTitle}
+                      onChange={e => setUserDefaults({...userDefaults, trainerTitle: e.target.value})}
+                      placeholder="e.g. Senior Consultant"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Location / Organization</label>
+                    <input 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-orange-200 outline-none"
+                      value={userDefaults.location}
+                      onChange={e => setUserDefaults({...userDefaults, location: e.target.value})}
+                      placeholder="e.g. Training Center A"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Default Bio</label>
+                    <textarea 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:ring-2 focus:ring-orange-200 outline-none h-24"
+                      value={userDefaults.trainerBio}
+                      onChange={e => setUserDefaults({...userDefaults, trainerBio: e.target.value})}
+                      placeholder="Standard trainer biography..."
+                    />
+                  </div>
+                </div>
+             </div>
+
+             <div className="p-6 pt-4 border-t bg-gray-50 rounded-b-xl flex justify-end space-x-2 flex-shrink-0">
+                 <button type="button" onClick={() => setShowSettingsModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancel</button>
+                 <button onClick={handleSaveSettings} className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-bold">Save Settings</button>
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* Saved Courses Modal */}
       {showSavedModal && (

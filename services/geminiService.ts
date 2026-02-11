@@ -2,13 +2,15 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { CourseData, ModuleItem, SessionPlanItem, LearningOutcomeItem } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-
 // Helper to handle API calls with retry logic
 async function safeGenerate(model: string, prompt: string, schema: Schema, retries = 3): Promise<any> {
-  if (!apiKey) throw new Error("API Key missing");
+  // Retrieve API key dynamically from localStorage or environment
+  const storedKey = typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') : null;
+  const apiKey = storedKey || process.env.API_KEY || '';
 
-  // Re-instantiate client for each request to avoid stale state issues that can lead to RPC errors
+  if (!apiKey) throw new Error("API Key missing. Please configure it in Settings or check environment variables.");
+
+  // Re-instantiate client for each request with the correct key
   const ai = new GoogleGenAI({ apiKey });
 
   let lastError;
