@@ -7,7 +7,7 @@ const VERSION = 1;
 
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
+    if (typeof window === 'undefined' || !window.indexedDB) {
       reject(new Error("IndexedDB is not supported in this browser."));
       return;
     }
