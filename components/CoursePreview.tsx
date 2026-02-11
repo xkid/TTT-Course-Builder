@@ -76,12 +76,17 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ data }) => {
                     </div>
                     {/* Sub topics tiny branches */}
                     <div className="pl-4 border-l border-gray-300 ml-2 space-y-1">
-                      {mod.subTopics.map((sub, sIdx) => (
-                        <div key={sub.id || sIdx} className="text-xs text-gray-600 relative flex items-start">
-                           <span className="mr-2 font-medium text-gray-500 w-6">{idx + 1}.{sIdx + 1}</span>
-                           <span>{sub.text}</span>
-                        </div>
-                      ))}
+                      {mod.subTopics.map((sub, sIdx) => {
+                        // Visual Fix: Clean text if it already starts with numbers like '1.1' or '3.1'
+                        // This prevents duplication like "3.1 3.1 Topic"
+                        const cleanSubText = sub.text.replace(/^\d+(\.\d+)+\s*[:.-]?\s*/, '');
+                        return (
+                          <div key={sub.id || sIdx} className="text-xs text-gray-600 relative flex items-start">
+                             <span className="mr-2 font-medium text-gray-500 min-w-[24px]">{idx + 1}.{sIdx + 1}</span>
+                             <span>{cleanSubText}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                  </div>
                </div>
@@ -111,7 +116,7 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ data }) => {
                 <tr key={row.id} className="hover:bg-gray-50 text-gray-900">
                   <td className="border border-gray-300 px-4 py-3 align-top">
                     <div className="font-bold mb-1 text-gray-900">{row.module}</div>
-                    <ul className="list-disc pl-4 text-xs text-gray-700 space-y-1">
+                    <ul className={`pl-4 text-xs text-gray-700 space-y-1 ${row.learningPoints.some(lp => /^\d+\.\d+/.test(lp)) ? 'list-none pl-0' : 'list-disc'}`}>
                       {row.learningPoints.map((pt, i) => <li key={i}>{pt}</li>)}
                     </ul>
                   </td>
