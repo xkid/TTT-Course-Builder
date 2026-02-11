@@ -37,22 +37,28 @@ async function safeGenerate(model: string, prompt: string, schema: Schema, retri
   throw lastError || new Error("Failed to generate content");
 }
 
-// Helper to clean numbering from text (e.g., "1.1 Topic" -> "Topic")
+// Helper to clean numbering from text (e.g., "1.1 Topic" -> "Topic", "Module 1.1 Topic" -> "Topic")
+// Made more robust to handle various numbering formats
 const cleanSubTopicText = (text: string) => {
-  return text.replace(/^\d+(\.\d+)+\s*[:.-]?\s*/, '').trim();
+  return text.replace(/^(Module\s+)?\d+(\.\d+)+\s*[:.-]?\s*/i, '').trim();
 };
 
 export const generateCourseStructure = async (topic: string): Promise<Partial<CourseData>> => {
-  const prompt = `Act as a Malaysia HRDF Certified Trainer (TTT Exemption). Design a training course outline for the topic: "${topic}".
-  Follow this strict HRDF TTT format:
+  const prompt = `Act as a Malaysia HRDF Certified Trainer (TTT Exemption). Design a Competency-Based Training (CBT) course outline for the topic: "${topic}".
+  
+  **Strict HRDF TTT Format Requirements:**
 
   1. **Course Title**: Professional and action-oriented.
   2. **Duration**: (e.g., 1 Day / 4 Hours).
-  3. **Learning Outcomes**: Create 3-5 specific outcomes. Format MUST be: [Action Verb] + [Measurable Subject]. Ensure outcomes determine specific skills.
+  3. **Learning Outcomes (LO)**: 
+     - Minimum 3 specific outcomes.
+     - Structure MUST be: **[Action Verb] + [Specific Subject/Object]** + (Optional: Context).
+     - Example: "Install and Setup Ollama Software", "Analyze data using Pivot Tables".
   4. **Ice Breaker**: A specific, relevant activity.
   5. **Content Mapping (Modules)**: 
-     - Break into 3-4 distinct Modules.
-     - Each Module must have sub-units (e.g., 1.1, 1.2, 1.3).
+     - Hierarchical numbering is mandatory.
+     - **Module Level**: Module 1, Module 2, etc.
+     - **Sub-topic Level**: 1.1 [Actionable Step], 1.2, 1.3...
      - Ensure logical flow for the target audience.
   
   Return JSON only.`;
@@ -124,12 +130,12 @@ export const generateModulesFromOutcomes = async (outcomes: LearningOutcomeItem[
   Target Learning Outcomes:
   - ${outcomesList}
 
-  Generate the **Content Mapping (Hierarchy)**.
+  Generate the **Content Mapping (Hierarchy)** following CBT standards.
   1. Break the course into distinct Modules (Module 1, Module 2, etc.).
   2. Each Module MUST have sub-units numbered strictly as 1.1, 1.2, 1.3, etc.
-  3. Ensure the flow is logical.
+  3. Sub-units must be actionable steps or specific topics.
   
-  **IMPORTANT**: strictly separate the Module Title from the sub-topics list. Do not merge them.
+  **IMPORTANT**: strictly separate the Module Title from the sub-topics list.
   Return a JSON array of module objects.`;
 
   const schema: Schema = {
@@ -181,18 +187,23 @@ export const generateSessionPlan = async (modules: ModuleItem[]): Promise<Sessio
   const prompt = `Act as a Malaysia HRDF Certified Trainer.
   Based on these modules: ${modulesJson}, generate a detailed **Session Plan Table**.
 
-  **STRICT RULE**: The "Learning Points" for each module MUST be the **EXACT COPY** of the sub-topics provided in the input (e.g., "1.1 ...", "1.2 ..."). 
-  - Do NOT rewrite, summarize, or invent new learning points.
-  - Do NOT convert them into generic bullet points. Use the numbered sub-topics.
+  **Strict HRDF Session Plan Columns:**
+  1. **Learning Points / Contents**: 
+     - MUST be the **EXACT COPY** of the sub-topics provided (e.g., "1.1 Download software", "1.2 Install").
+     - Do NOT summarize. Use the numbered list.
+  2. **Resources**: e.g., PPT, Computer, Whiteboard, Internet.
+  3. **Method / Activities**: 
+     - MUST be distinctly split into **'Lecture'** (Trainer input) and **'Activity'** (Trainee output).
+     - Example: "Lecture: Explain X... \nActivity: Trainees perform Y..."
+  4. **Duration**: Estimate time (e.g. 30 mins).
+  5. **Slide No**: e.g. 1-5.
 
-  Requirements:
-  1. **Module**: The mapped content title.
-  2. **Learning Points**: The exact list of sub-topics.
-  3. **Methodology**: Distinctly split into 'Lecture' (Trainer input) and 'Activity' (Trainee output). Ensure every learning outcome has a practical activity.
-  4. **Resources**: e.g., PPT, Handouts, Whiteboard.
-  5. **Duration**: Estimate time for each section.
-  
-  Include an 'Introduction/Ice Breaker' row at the start and a 'Summary & Review' row at the end.
+  **Closing Loop (Mandatory)**:
+  - Add a final row for "Closing Section".
+  - Learning Points: "Summary of Module 1-X", "Recap Key Terms".
+  - Method: "Facilitated Discussion & Review Assessment".
+
+  Include an 'Introduction/Ice Breaker' row at the start.
   Return JSON only.`;
 
   const schema: Schema = {
@@ -203,7 +214,7 @@ export const generateSessionPlan = async (modules: ModuleItem[]): Promise<Sessio
         module: { type: Type.STRING },
         learningPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
         resources: { type: Type.STRING },
-        method: { type: Type.STRING, description: "Lecture / Activity breakdown" },
+        method: { type: Type.STRING, description: "Split into Lecture and Activity" },
         duration: { type: Type.STRING },
         slideNo: { type: Type.STRING }
       },
@@ -231,9 +242,10 @@ export const generateReviewQuestions = async (modules: ModuleItem[]): Promise<st
   const modulesJson = JSON.stringify(simplifiedModules);
   
   const prompt = `Act as a Malaysia HRDF Certified Trainer.
-  Closing Section:
-  Based on these modules: ${modulesJson}, create 3 specific **Review/Assessment Questions** that directly test the learning outcomes (Knowledge/Skill check).
+  Closing Section - Review Outcome:
+  Based on these modules: ${modulesJson}, create 3 specific **Assessment Questions** that directly test the Learning Outcomes.
   
+  These questions serve as the "Review Outcome" for the Closing Loop.
   Return a JSON array of strings.`;
 
   const schema: Schema = {

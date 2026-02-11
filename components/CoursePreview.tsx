@@ -78,8 +78,8 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ data }) => {
                     <div className="pl-4 border-l border-gray-300 ml-2 space-y-1">
                       {mod.subTopics.map((sub, sIdx) => {
                         // Visual Fix: Clean text if it already starts with numbers like '1.1' or '3.1'
-                        // This prevents duplication like "3.1 3.1 Topic"
-                        const cleanSubText = sub.text.replace(/^\d+(\.\d+)+\s*[:.-]?\s*/, '');
+                        // Matches "1.1", "1.1.", "1.1 -", "Module 1.1" etc.
+                        const cleanSubText = sub.text.replace(/^(Module\s+)?\d+(\.\d+)+\s*[:.-]?\s*/i, '').trim();
                         return (
                           <div key={sub.id || sIdx} className="text-xs text-gray-600 relative flex items-start">
                              <span className="mr-2 font-medium text-gray-500 min-w-[24px]">{idx + 1}.{sIdx + 1}</span>
@@ -154,12 +154,12 @@ export const CoursePreview: React.FC<CoursePreviewProps> = ({ data }) => {
         </div>
       </div>
 
-      {/* Recap & Review */}
+      {/* Recap & Review (Closing Loop) */}
       <div className="mt-8 border border-gray-200 p-6 rounded-lg bg-orange-50 break-inside-avoid text-gray-900">
          <h2 className="text-xl font-bold text-orange-600 mb-4 flex items-center">
             <CheckCircle className="w-5 h-5 mr-2" /> Review Outcome
           </h2>
-          <p className="mb-2 font-semibold text-gray-900">Checklist Questions:</p>
+          <p className="mb-2 font-semibold text-gray-900">Checklist / Assessment Questions:</p>
           <ul className="list-decimal pl-5 space-y-2 text-gray-800">
             {data.reviewQuestions.map((q, idx) => (
               <li key={q.id || idx}>{q.question}</li>
